@@ -1,0 +1,62 @@
+name: Reusable SSH Deploy
+
+on:
+  workflow_call:
+    inputs:
+      project_name:
+        required: true
+        type: string
+        description: 'Project directory name on VPS'
+      node_version:
+        required: false
+        type: string
+        default: '18'
+        description: 'Node.js version'
+      branch:
+        required: false
+        type: string
+        default: 'main'
+        description: 'Branch to deploy'
+    secrets:
+      VPS_HOST:
+        required: true
+      VPS_USER:
+        required: true
+      VPS_SSH_KEY:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            echo "======================================"
+            echo "Starting Deployment"
+            echo "Time: $(date)"
+            echo "======================================"
+
+            cd ~/${{ inputs.project_name }}/
+
+            echo "Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
+
+            echo "Rebuilding containers..."
+            docker compose down
+            docker compose build
+            docker compose up -d
+
+            echo "Checking containers status..."
+            docker compose ps
+
+            echo "======================================"
+            echo "Deployment Completed!"
+            echo "======================================"
